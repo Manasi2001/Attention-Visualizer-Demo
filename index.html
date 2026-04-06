@@ -4,34 +4,79 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Attention Tree Visualizer</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
     <script src="https://d3js.org/d3.v7.min.js"></script>
     <style>
-        body { font-family: Arial, sans-serif; display: flex; flex-direction: column; align-items: center; background-color: #ffffff; padding: 20px; }
-        #controls { margin-bottom: 20px; }
-        select { padding: 8px 12px; font-size: 16px; border-radius: 4px; border: 1px solid #ccc; }
-        svg { border: 1px solid #eee; border-radius: 8px; background-color: #fafafa; }
+        body { 
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; 
+            display: flex; 
+            flex-direction: column; 
+            align-items: center; 
+            background-color: #f3f4f6; /* Soft gray background */
+            margin: 0;
+            padding: 40px 20px; 
+            color: #1f2937;
+        }
+        .header-container {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        h2 { margin: 0 0 10px 0; color: #111827; }
+        p.subtitle { margin: 0; color: #6b7280; font-size: 15px; }
+        
+        #controls { 
+            margin-bottom: 30px; 
+            background: white;
+            padding: 15px 25px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+        label { font-weight: 600; margin-right: 10px; color: #374151; }
+        select { 
+            padding: 10px 16px; 
+            font-size: 16px; 
+            font-family: 'Inter', sans-serif;
+            border-radius: 8px; 
+            border: 1px solid #d1d5db; 
+            background-color: #f9fafb;
+            cursor: pointer;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+        select:focus { border-color: #3b82f6; }
+        
+        svg { 
+            background-color: #ffffff; 
+            border-radius: 16px; 
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1); 
+        }
     </style>
 </head>
 <body>
 
+    <div class="header-container">
+        <h2>Attention Mechanism Explorer</h2>
+        <p class="subtitle">Select a target word to see where the model focuses its attention.</p>
+    </div>
+
     <div id="controls">
-        <label for="wordSelect"><strong>Select Target Word: </strong></label>
+        <label for="wordSelect">Translating Word:</label>
         <select id="wordSelect"></select>
     </div>
 
-    <svg width="600" height="500"></svg>
+    <svg width="650" height="550"></svg>
 
     <script>
         const words = ["The", "lady", "sits", "on", "a", "chair."];
         
-        // Simulated conceptual attention weights (Source Word -> [Weights to other words])
+        // Simulated conceptual attention weights
         const dummyWeights = {
-            "The": [1.0, 0.8, 0.1, 0.05, 0.0, 0.05],
-            "lady": [0.6, 1.0, 0.7, 0.1, 0.0, 0.1],
-            "sits": [0.05, 0.6, 1.0, 0.8, 0.1, 0.3],
-            "on": [0.0, 0.1, 0.8, 1.0, 0.6, 0.7],
+            "The": [1.0, 0.85, 0.1, 0.05, 0.0, 0.05],
+            "lady": [0.65, 1.0, 0.75, 0.1, 0.0, 0.1],
+            "sits": [0.05, 0.7, 1.0, 0.8, 0.1, 0.3],
+            "on": [0.0, 0.1, 0.85, 1.0, 0.6, 0.75],
             "a": [0.0, 0.0, 0.1, 0.4, 1.0, 0.9],
-            "chair.": [0.0, 0.1, 0.3, 0.7, 0.8, 1.0]
+            "chair.": [0.0, 0.1, 0.3, 0.7, 0.9, 1.0]
         };
 
         const select = d3.select("#wordSelect");
@@ -55,14 +100,14 @@
 
             const selectedIndex = words.indexOf(selectedWord);
             const weights = dummyWeights[selectedWord];
-            const radius = 180;
+            const radius = 200; // Spread out slightly more for better text clearance
 
             // Create nodes data
             const nodesData = words.map((word, i) => {
                 if (word === selectedWord) return { id: word, x: centerX, y: centerY, weight: 1, isRoot: true };
                 
                 // Distribute children in a circle
-                const angle = (i / (words.length - 1)) * 2 * Math.PI;
+                const angle = (i / (words.length - 1)) * 2 * Math.PI - (Math.PI / 2); // Rotate slightly for aesthetics
                 return {
                     id: word,
                     x: centerX + radius * Math.cos(angle),
@@ -72,7 +117,7 @@
                 };
             });
 
-            // Draw Links
+            // Draw Links (Lines)
             g.selectAll("line")
                 .data(nodesData.filter(d => !d.isRoot))
                 .enter().append("line")
@@ -81,34 +126,44 @@
                 .attr("x2", d => d.x)
                 .attr("y2", d => d.y)
                 .attr("stroke", d => d3.interpolateBlues(d.weight))
-                .attr("stroke-width", d => Math.max(1, d.weight * 10))
-                .attr("opacity", 0.7);
+                .attr("stroke-width", d => Math.max(2, d.weight * 12)) // Thicker lines for visibility
+                .attr("opacity", d => Math.max(0.2, d.weight)); // Fade out very weak lines
 
-            // Draw Nodes
-            const nodes = g.selectAll("g")
+            // Draw Nodes (Groups for Circles + Text)
+            const nodes = g.selectAll("g.node")
                 .data(nodesData)
                 .enter().append("g")
+                .attr("class", "node")
                 .attr("transform", d => `translate(${d.x},${d.y})`);
 
+            // The Bubbles
             nodes.append("circle")
-                .attr("r", d => d.isRoot ? 35 : 15 + (d.weight * 20))
-                .attr("fill", d => d.isRoot ? "#ff7f0e" : d3.interpolateBlues(d.weight))
-                .attr("stroke", "#333")
-                .attr("stroke-width", 2);
+                .attr("r", d => d.isRoot ? 45 : 12 + (d.weight * 25)) // Dynamic sizing based on weight
+                .attr("fill", d => d.isRoot ? "#f97316" : d3.interpolateBlues(Math.max(0.1, d.weight))) // Orange root, blue children
+                .attr("stroke", d => d.isRoot ? "#ea580c" : "#ffffff")
+                .attr("stroke-width", d => d.isRoot ? 0 : 3)
+                .style("box-shadow", "0 4px 6px rgba(0,0,0,0.1)");
 
+            // The Labels
             nodes.append("text")
                 .text(d => d.id)
-                .attr("dy", d => d.isRoot ? 5 : d.weight > 0.5 ? 5 : 25)
                 .attr("text-anchor", "middle")
-                .attr("font-size", d => d.isRoot ? "18px" : `${12 + (d.weight * 8)}px`)
-                .attr("font-weight", d => d.weight > 0.5 ? "bold" : "normal")
-                .attr("fill", d => (d.isRoot || d.weight > 0.6) ? "#fff" : "#333");
+                // Root text stays precisely centered inside the bubble; Child text drops cleanly below its bubble
+                .attr("dy", d => d.isRoot ? "0.35em" : (12 + (d.weight * 25) + 20)) 
+                .attr("font-size", d => d.isRoot ? "22px" : "15px")
+                .attr("font-weight", d => d.isRoot || d.weight > 0.5 ? "700" : "600")
+                .attr("fill", d => d.isRoot ? "#ffffff" : "#4b5563")
+                // Add a white halo around the child text so the lines don't obscure it
+                .clone(true).lower()
+                .attr("stroke", "white")
+                .attr("stroke-width", 4)
+                .attr("stroke-linejoin", "round");
         }
 
-        // Initialize
+        // Initialize the first view
         updateViz(words[0]);
 
-        // Listen for changes
+        // Listen for user interaction
         select.on("change", function() {
             updateViz(this.value);
         });
