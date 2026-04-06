@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Attention Mechanism Explorer</title>
+<title>Attention Flow Visualizer</title>
 
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://d3js.org/d3.v7.min.js"></script>
@@ -12,66 +12,36 @@
 body {
   font-family: 'Inter', sans-serif;
   margin: 0;
-  background: linear-gradient(135deg, #eef2ff, #f8fafc);
+  background: #f8fafc;
   display: flex;
   flex-direction: column;
   align-items: center;
   padding: 40px 20px;
-  color: #111827;
-}
-
-.header-container {
-  text-align: center;
-  margin-bottom: 25px;
 }
 
 h2 {
-  margin: 0;
-  font-size: 28px;
-  font-weight: 700;
-}
-
-.subtitle {
-  margin-top: 8px;
-  color: #6b7280;
-  font-size: 15px;
+  margin-bottom: 10px;
 }
 
 #controls {
-  background: rgba(255, 255, 255, 0.9);
-  backdrop-filter: blur(10px);
-  padding: 12px 20px;
-  border-radius: 12px;
-  box-shadow: 0 8px 20px rgba(0,0,0,0.08);
   margin-bottom: 25px;
 }
 
-label {
-  font-weight: 600;
-  margin-right: 10px;
-}
-
 select {
-  padding: 8px 14px;
-  border-radius: 8px;
-  border: 1px solid #d1d5db;
-  background: #f9fafb;
-  font-size: 14px;
-  cursor: pointer;
+  padding: 8px 12px;
+  border-radius: 6px;
+  border: 1px solid #ccc;
 }
 
 svg {
   background: white;
-  border-radius: 18px;
-  box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+  border-radius: 12px;
+  box-shadow: 0 10px 25px rgba(0,0,0,0.08);
 }
 
-.node circle {
-  transition: all 0.3s ease;
-}
-
-.node:hover circle {
-  transform: scale(1.05);
+.node rect {
+  rx: 8;
+  ry: 8;
 }
 
 </style>
@@ -79,17 +49,14 @@ svg {
 
 <body>
 
-<div class="header-container">
-  <h2>Attention Mechanism Explorer</h2>
-  <div class="subtitle">Visualizing how each word attends to others</div>
-</div>
+<h2>Attention Flow</h2>
 
 <div id="controls">
-  <label for="wordSelect">Focus word:</label>
+  <label>Select word:</label>
   <select id="wordSelect"></select>
 </div>
 
-<svg width="700" height="600"></svg>
+<svg width="800" height="400"></svg>
 
 <script>
 const words = ["The", "lady", "sits", "on", "a", "chair."];
@@ -103,6 +70,12 @@ const dummyWeights = {
   "chair.": [0.0, 0.1, 0.3, 0.7, 0.9, 1.0]
 };
 
+const svg = d3.select("svg");
+const width = +svg.attr("width");
+const height = +svg.attr("height");
+
+const g = svg.append("g");
+
 const select = d3.select("#wordSelect");
 select.selectAll("option")
   .data(words)
@@ -110,84 +83,80 @@ select.selectAll("option")
   .append("option")
   .text(d => d);
 
-const svg = d3.select("svg"),
-      width = +svg.attr("width"),
-      height = +svg.attr("height"),
-      centerX = width / 2,
-      centerY = height / 2;
+const xSpacing = width / (words.length + 1);
+const sourceY = 100;
+const targetY = 280;
 
-const g = svg.append("g");
-
-const colorScale = d3.scaleLinear()
-  .domain([0, 1])
-  .range(["#c7d2fe", "#1e3a8a"]);
-
-function updateViz(selectedWord) {
+function update(selectedWord) {
   g.selectAll("*").remove();
 
   const weights = dummyWeights[selectedWord];
-  const radius = 220;
 
-  const nodesData = words.map((word, i) => {
-    if (word === selectedWord) {
-      return { id: word, x: centerX, y: centerY, weight: 1, root: true };
-    }
+  // SOURCE NODE
+  g.append("rect")
+    .attr("x", width / 2 - 60)
+    .attr("y", sourceY - 20)
+    .attr("width", 120)
+    .attr("height", 40)
+    .attr("fill", "#2563eb");
 
-    const angle = (i / words.length) * 2 * Math.PI;
-    return {
-      id: word,
-      x: centerX + radius * Math.cos(angle),
-      y: centerY + radius * Math.sin(angle),
-      weight: weights[i],
-      root: false
-    };
-  });
-
-  // LINKS
-  g.selectAll("line")
-    .data(nodesData.filter(d => !d.root))
-    .enter()
-    .append("line")
-    .attr("x1", centerX)
-    .attr("y1", centerY)
-    .attr("x2", d => d.x)
-    .attr("y2", d => d.y)
-    .attr("stroke", d => colorScale(d.weight))
-    .attr("stroke-width", d => 1 + d.weight * 6)
-    .attr("opacity", d => 0.3 + d.weight * 0.7);
-
-  // NODES
-  const nodes = g.selectAll(".node")
-    .data(nodesData)
-    .enter()
-    .append("g")
-    .attr("class", "node")
-    .attr("transform", d => `translate(${d.x},${d.y})`);
-
-  nodes.append("circle")
-    .attr("r", d => d.root ? 50 : 10 + d.weight * 20)
-    .attr("fill", d => d.root ? "#2563eb" : colorScale(d.weight))
-    .attr("stroke", "white")
-    .attr("stroke-width", 2);
-
-  nodes.append("text")
-    .text(d => d.id)
+  g.append("text")
+    .attr("x", width / 2)
+    .attr("y", sourceY + 5)
     .attr("text-anchor", "middle")
-    .attr("dy", d => d.root ? "0.35em" : (20 + d.weight * 20))
-    .attr("font-size", d => d.root ? "20px" : "13px")
-    .attr("font-weight", d => d.root ? "700" : "500")
-    .attr("fill", d => d.root ? "white" : "#374151")
-    .clone(true)
-    .lower()
-    .attr("stroke", "white")
-    .attr("stroke-width", 3);
+    .attr("fill", "white")
+    .attr("font-weight", "600")
+    .text(selectedWord);
+
+  // TARGET NODES
+  words.forEach((word, i) => {
+    const x = (i + 1) * xSpacing;
+
+    const weight = weights[i];
+
+    // line
+    g.append("line")
+      .attr("x1", width / 2)
+      .attr("y1", sourceY + 20)
+      .attr("x2", x)
+      .attr("y2", targetY - 20)
+      .attr("stroke", "#2563eb")
+      .attr("stroke-width", 1 + weight * 6)
+      .attr("opacity", 0.2 + weight * 0.8);
+
+    // box
+    g.append("rect")
+      .attr("x", x - 50)
+      .attr("y", targetY - 20)
+      .attr("width", 100)
+      .attr("height", 40)
+      .attr("fill", "#e5e7eb");
+
+    // text
+    g.append("text")
+      .attr("x", x)
+      .attr("y", targetY + 5)
+      .attr("text-anchor", "middle")
+      .attr("font-size", "13px")
+      .text(word);
+
+    // weight label (small but useful)
+    g.append("text")
+      .attr("x", x)
+      .attr("y", targetY + 30)
+      .attr("text-anchor", "middle")
+      .attr("font-size", "11px")
+      .attr("fill", "#6b7280")
+      .text(weight.toFixed(2));
+  });
 }
 
-updateViz(words[0]);
+update(words[0]);
 
 select.on("change", function() {
-  updateViz(this.value);
+  update(this.value);
 });
+
 </script>
 
 </body>
